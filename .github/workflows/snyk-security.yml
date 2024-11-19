@@ -17,51 +17,60 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
           cache: 'maven'
-
-      - name: Install Snyk CLI
-        run: |
-          curl -Lo ./snyk https://static.snyk.io/cli/latest/snyk-linux
-          chmod +x ./snyk
-          sudo mv ./snyk /usr/local/bin/
-
-      - name: Verify installations
-        run: |
-          java -version
-          mvn -version
-          snyk --version
+          java-package: jdk
 
       - name: Build with Maven
         run: mvn package -DskipTests
 
-      - name: Run Snyk Maven scan
+      - name: Run Snyk to check Maven dependencies for vulnerabilities
         continue-on-error: true
+        uses: snyk/actions/maven@master
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        run: snyk test --severity-threshold=high --json-file-output=maven-results.json
+          JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.13-11/x64
+        with:
+          args: --severity-threshold=high --json-file-output=maven-results.json
+          command: test
 
-      - name: Scan root Dockerfile
+      - name: Run Snyk to check root Dockerfile for vulnerabilities
         continue-on-error: true
+        uses: snyk/actions/docker@master
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        run: snyk container test --severity-threshold=high --json-file-output=root-dockerfile-results.json --file=Dockerfile
+        with:
+          image: your-docker-image-name
+          dockerfile: Dockerfile
+          args: --severity-threshold=high --json-file-output=root-dockerfile-results.json
 
-      - name: Scan client Dockerfile
+      - name: Run Snyk to check client Dockerfile for vulnerabilities
         continue-on-error: true
+        uses: snyk/actions/docker@master
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        run: snyk container test --severity-threshold=high --json-file-output=client-dockerfile-results.json --file=client/Dockerfile
+        with:
+          image: your-client-image-name
+          dockerfile: client/Dockerfile
+          args: --severity-threshold=high --json-file-output=client-dockerfile-results.json
 
-      - name: Scan internal site Dockerfile
+      - name: Run Snyk to check internal site Dockerfile for vulnerabilities
         continue-on-error: true
+        uses: snyk/actions/docker@master
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        run: snyk container test --severity-threshold=high --json-file-output=internal-site-dockerfile-results.json --file=internal_site/Dockerfile
+        with:
+          image: your-internal-site-image-name
+          dockerfile: internal_site/Dockerfile
+          args: --severity-threshold=high --json-file-output=internal-site-dockerfile-results.json
 
-      - name: Monitor project in Snyk
+      - name: Run Snyk to check Java code for vulnerabilities
         continue-on-error: true
+        uses: snyk/actions/maven@master
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        run: snyk monitor
+          JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.13-11/x64
+        with:
+          command: code test
+          args: --severity-threshold=high --json-file-output=java-code-results.json
 
       - name: Upload scan results
         if: always()
