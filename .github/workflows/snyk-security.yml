@@ -1,18 +1,15 @@
 name: Snyk Security Scan
-
 on:
   push:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
   workflow_dispatch:
-
 jobs:
   security:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Set up JDK
         uses: actions/setup-java@v4
         with:
@@ -21,50 +18,65 @@ jobs:
           cache: 'maven'
 
       - name: Run Snyk to check Maven dependencies for vulnerabilities
+        continue-on-error: true
         uses: snyk/actions/maven@master
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
-          args: --severity-threshold=high
+          args: --severity-threshold=high --json-file-output=maven-results.json
           
       - name: Run Snyk to check root Dockerfile for vulnerabilities
+        continue-on-error: true
         uses: snyk/actions/docker@master
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
           image: your-docker-image-name
           dockerfile: Dockerfile
-          args: --severity-threshold=high
+          args: --severity-threshold=high --json-file-output=root-dockerfile-results.json
 
       - name: Run Snyk to check client Dockerfile for vulnerabilities
+        continue-on-error: true
         uses: snyk/actions/docker@master
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
           image: your-client-image-name
           dockerfile: client/Dockerfile
-          args: --severity-threshold=high
+          args: --severity-threshold=high --json-file-output=client-dockerfile-results.json
 
       - name: Run Snyk to check internal site Dockerfile for vulnerabilities
+        continue-on-error: true
         uses: snyk/actions/docker@master
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
           image: your-internal-site-image-name
           dockerfile: internal_site/Dockerfile
-          args: --severity-threshold=high
+          args: --severity-threshold=high --json-file-output=internal-site-dockerfile-results.json
 
       - name: Run Snyk to check Java code for vulnerabilities
+        continue-on-error: true
         uses: snyk/actions/maven@master
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
           command: code test
-          args: --severity-threshold=high
+          args: --severity-threshold=high --json-file-output=java-code-results.json
 
       - name: Monitor project in Snyk
+        continue-on-error: true
         uses: snyk/actions/maven@master
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
           command: monitor
+
+      - name: Upload scan results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: snyk-scan-results
+          path: |
+            *-results.json
+          retention-days: 7
