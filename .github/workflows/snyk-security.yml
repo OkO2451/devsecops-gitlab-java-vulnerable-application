@@ -18,19 +18,56 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
-      - name: Show java
+      - name: Install Snyk CLI
         run: |
-          echo $JAVA_HOME
-          echo $PATH
+          curl -Lo ./snyk https://static.snyk.io/cli/latest/snyk-linux
+          chmod +x ./snyk
+          sudo mv ./snyk /usr/local/bin/
+
+      - name: Verify installations
+        run: |
           java -version
-  
+          mvn -version
+          snyk --version
+
       - name: Build with Maven
         run: mvn package -DskipTests
 
-      - name: Run Snyk to check Maven dependencies for vulnerabilities
+      - name: Run Snyk Maven scan
         continue-on-error: true
-        uses: snyk/actions/maven@master
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: snyk test --severity-threshold=high --json-file-output=maven-results.json
+
+      - name: Scan root Dockerfile
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: snyk container test --severity-threshold=high --json-file-output=root-dockerfile-results.json --file=Dockerfile
+
+      - name: Scan client Dockerfile
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: snyk container test --severity-threshold=high --json-file-output=client-dockerfile-results.json --file=client/Dockerfile
+
+      - name: Scan internal site Dockerfile
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: snyk container test --severity-threshold=high --json-file-output=internal-site-dockerfile-results.json --file=internal_site/Dockerfile
+
+      - name: Monitor project in Snyk
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: snyk monitor
+
+      - name: Upload scan results
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          args: --severity-threshold=high --json-file-output=maven-results.json
+          name: snyk-scan-results
+          path: |
+            *-results.json
+          retention-days: 7
